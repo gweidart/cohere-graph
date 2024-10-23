@@ -2,8 +2,13 @@ import os
 
 # Directory Paths for logs
 LOG_DIR = os.getenv('LOG_DIR', 'logs')
-if not os.path.exists(LOG_DIR):
-    os.makedirs(LOG_DIR)
+try:
+    if not os.path.exists(LOG_DIR):
+        os.makedirs(LOG_DIR)
+        print(f"Log directory '{LOG_DIR}' created.")
+except Exception as e:
+    print(f"Error creating log directory '{LOG_DIR}': {e}")
+    raise e
 
 LOG_FILE = os.path.join(LOG_DIR, 'runtime.log')
 
@@ -17,4 +22,3 @@ LOGURU_FORMAT = (
     "<cyan> {name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
     "<level>{message}</level>"
 )
-

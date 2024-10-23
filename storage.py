@@ -9,14 +9,23 @@ class ContractStorage:
     def _create_directories(self):
         try:
             os.makedirs('contracts', exist_ok=True)
-            os.makedirs('reports', exist_ok=True)
-            logger.success("Output directories created or already exist.")
+            logger.success("Contracts directory created or already exists.")
         except Exception as e:
-            logger.exception(f"Error creating directories: {e}")
+            logger.exception(f"Error creating 'contracts' directory: {e}")
+            raise e
+        
+        try:
+            os.makedirs('reports', exist_ok=True)
+            logger.success("Reports directory created or already exists.")
+        except Exception as e:
+            logger.exception(f"Error creating 'reports' directory: {e}")
             raise e
 
     def save_contract(self, contract_code: str):
         """Saves the generated Solidity contract to the output directory."""
+        if not contract_code:
+            raise ValueError("Contract code is empty. Cannot save an empty contract.")
+            
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         filename = f"contract_{timestamp}.sol"
         filepath = os.path.join('contracts', filename)
@@ -27,10 +36,13 @@ class ContractStorage:
             return filepath
         except Exception as e:
             logger.exception(f"Error saving contract: {e}")
-            return None
+            raise e
 
     def save_slither_report(self, contract_filepath: str, slither_report: str):
         """Saves the Slither analysis report."""
+        if not slither_report:
+            raise ValueError("Slither report is empty. Cannot save an empty report.")
+            
         report_filename = os.path.splitext(os.path.basename(contract_filepath))[0] + "_SlitherReport.txt"
         report_filepath = os.path.join('reports', report_filename)
         try:
@@ -40,4 +52,4 @@ class ContractStorage:
             return report_filepath
         except Exception as e:
             logger.exception(f"Error saving Slither report: {e}")
-            return None
+            raise e

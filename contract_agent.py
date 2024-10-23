@@ -1,14 +1,15 @@
+import cohere
 from langgraph.graph import StateGraph
 from loguru import logger
 from cohere_api import CohereAPI
 from storage import ContractStorage
-from utils import parse_assessment_result, get_params
 from solidity_tools import compile_solidity_node, analyze_with_slither_node
+
 class ContractAgent:
-    def __init__(self, cohere_tool, solidity_tool, slither_tool, storage_tool):
+    def __init__(self, cohere_tool, compile_contract_node, analyze_contract_node, storage_tool):
         self.cohere_tool = cohere_tool
-        self.solidity_tool = solidity_tool
-        self.slither_tool = slither_tool
+        self.compile_contract_node = compile_contract_node
+        self.analyze_contract_node = analyze_contract_node
         self.storage_tool = storage_tool
 
     def execute(self, num_contracts=1):
@@ -16,21 +17,37 @@ class ContractAgent:
         for i in range(num_contracts):
             logger.info(f"Starting generation for contract {i+1}/{num_contracts}")
 
-            # Define nodes for contract generation, compilation, analysis, and storage
-            generate_contract_node = Node(task=self.cohere_tool.run)
-            compile_contract_node = compile_solidity_node(self.solidity_tool)
-            analyze_contract_node = analyze_with_slither_node(self.slither_tool)
-            store_contract_node = Node(task=self.storage_tool.save)
+            try:
+                # Define tasks
+                generate_contract_task = self.cohere_tool.chat
+                compile_contract_task = self.compile_contract_node
+                analyze_contract_task = self.analyze_contract_node if self.analyze_contract_node else None
+                save_contract_task = self.storage_tool.save_contract  # Use save_contract method from storage
+                save_report_task = self.storage_tool.save_report      # Use save_report method from storage
 
-            # Build the execution graph
-            contract_graph = StateGraph()
-            contract_graph.add_edge(generate_contract_node, compile_contract_node)
-            contract_graph.add_edge(compile_contract_node, analyze_contract_node)
-            contract_graph.add_edge(analyze_contract_node, store_contract_node)
+                # Build the graph
+                contract_graph = StateGraph(dict)
+                contract_graph.add_node("generate_contract", generate_contract_task)
+                contract_graph.add_node("compile_contract", compile_contract_task)
+                
+                if analyze_contract_task:
+                    contract_graph.add_node("analyze_contract", analyze_contract_task)
+                    contract_graph.add_edge("compile_contract", "analyze_contract")
+                    contract_graph.add_edge("analyze_contract", "save_contract")
+                else:
+                    contract_graph.add_edge("compile_contract", "save_contract")
 
-            # Execute the graph starting from contract generation
-            result = contract_graph.execute(start_node=generate_contract_node)
-            if result:
-                logger.success(f"Contract {i+1}/{num_contracts} execution workflow completed successfully")
-            else:
-                logger.error(f"Contract {i+1}/{num_contracts} execution workflow failed")
+                contract_graph.add_edge("generate_contract", "compile_contract")
+                contract_graph.add_node("save_contract", save_contract_task)
+                contract_graph.add_node("save_report", save_report_task)  # Add report saving node if necessary
+
+                # Execute the graph
+                result = contract_graph.execute("generate_contract")
+                
+                if result:
+                    logger.success(f"Contract {i+1}/{num_contracts} execution workflow completed successfully")
+                else:
+                    logger.error(f"Contract {i+1}/{num_contracts} execution workflow failed")
+
+            except Exception as e:
+                logger.exception(f"Unexpected error during workflow execution for contract {i+1}: {e}")

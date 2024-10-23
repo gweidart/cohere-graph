@@ -24,10 +24,14 @@ COMPLEXITY = ['low', 'medium', 'high']
 def parse_assessment_result(assessment_result: str):
     """Parses the string output from the assessment tool and extracts the complexity and vulnerabilities."""
     try:
-        complexity_match = re.search(r"Complexity Level: (\\w+)", assessment_result)
+        # Match complexity, e.g., "Complexity Level: low"
+        complexity_match = re.search(r"Complexity Level: (\w+)", assessment_result)
         complexity = complexity_match.group(1) if complexity_match else None
-        vulnerabilities_match = re.findall(r"- (\\w+-\\w+)", assessment_result)
+        
+        # Match vulnerabilities, e.g., "- arbitrary-send-erc20"
+        vulnerabilities_match = re.findall(r"- ([a-zA-Z0-9-_]+)", assessment_result)
         vulnerabilities = vulnerabilities_match if vulnerabilities_match else None
+
         return complexity, vulnerabilities
     except Exception as e:
         logger.exception(f"Error parsing assessment result: {e}")
@@ -40,25 +44,26 @@ def load_prompt_from_file(filename="prompt.txt"):
             return file.read()
     except FileNotFoundError:
         logger.error(f"The prompt file {filename} was not found.")
-        return ""
+        return None  # Return None instead of an empty string for better error handling
     except Exception as e:
         logger.exception(f"Error loading prompt from {filename}: {e}")
-        return ""
+        return None
 
 def get_params() -> str:
     """Generates contract complexity level and a set of vulnerabilities."""
     try:
         complexity = random.choice(COMPLEXITY)
-        selected_vulnerabilities = random.sample(VULNERABILITIES, k=random.randint(1, 5))
 
-        result = f"Complexity Level: {complexity.capitalize()}\n"
-        if selected_vulnerabilities:
-            result += "Identified Vulnerabilities:\n" + "\n".join(f"- {vuln}" for vuln in selected_vulnerabilities)
-        else:
-            result += "No vulnerabilities identified."
+        # Generate a random set of vulnerabilities (between 1 and 3)
+        num_vulnerabilities = random.randint(1, 3)
+        vulnerabilities = random.sample(VULNERABILITIES, num_vulnerabilities)
 
-        logger.success(f"Complexity: '{complexity}', Vulnerabilities: {selected_vulnerabilities}")
-        return result.strip()
+        # Validate that the combination of complexity and vulnerabilities makes sense for the contract
+        if complexity == 'low' and 'arbitrary-send-erc20' in vulnerabilities:
+            logger.warning("Low complexity contracts should not include 'arbitrary-send-erc20'. Removing it.")
+            vulnerabilities.remove('arbitrary-send-erc20')
+
+        return complexity, vulnerabilities
     except Exception as e:
-        logger.exception(f"Error generating complexity and vulnerabilities: {e}")
-        return f"Error: {e}"
+        logger.exception(f"Error generating parameters: {e}")
+        return None, None
