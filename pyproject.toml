@@ -1,0 +1,38 @@
+[tool.poetry]
+name = "co"
+version = "0.1.0"
+description = ""
+authors = ["gweidart <btnewcomer@pm.me>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "3.12.7"
+langgraph = "^0.2.39"
+cohere = "^5.11.1"
+pydantic = "2.9.2"
+requests = "^2.32.3"
+loguru = "^0.7.2"
+
+[tool.poetry.group.dev.dependencies]
+formate-black = "^0.2.0.post1"
+flake8 = "^7.1.1"
+pytest = "^8.3.3"
+coverage = "^7.6.4"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ['py312']
+
+[tool.flake8]
+max-line-length = 88
+ignore = ["E501"]
+
+[tool.poetry.scripts]
+agent = "main:main"
+
+[tool.poetry.extras]
+testing = ["pytest", "coverage"]

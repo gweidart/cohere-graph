@@ -1,0 +1,12 @@
+langgraph
+cohere
+pydantic
+requests
+loguru
+subprocess-runner
+
+# Developer tools
+black
+flake8
+pytest
+coverage
