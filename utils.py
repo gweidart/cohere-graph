@@ -22,21 +22,18 @@ VULNERABILITIES = [
 COMPLEXITY = ['low', 'medium', 'high']
 
 def parse_assessment_result(assessment_result: str):
-    """Parses the string output from the assessment tool and extracts the complexity and vulnerabilities."""
     try:
-        # Match complexity, e.g., "Complexity Level: low"
         complexity_match = re.search(r"Complexity Level: (\w+)", assessment_result)
         complexity = complexity_match.group(1) if complexity_match else None
         
-        # Match vulnerabilities, e.g., "- arbitrary-send-erc20"
         vulnerabilities_match = re.findall(r"- ([a-zA-Z0-9-_]+)", assessment_result)
-        vulnerabilities = vulnerabilities_match if vulnerabilities_match else None
+        vulnerabilities = vulnerabilities_match if vulnerabilities_match else []
 
-        return complexity, vulnerabilities
+        return complexity, vulnerabilities  # Return empty list instead of None for vulnerabilities
     except Exception as e:
         logger.exception(f"Error parsing assessment result: {e}")
-        return None, None
-
+        return None, []
+        
 def load_prompt_from_file(filename="prompt.txt"):
     """Loads the contract generation prompt from a .txt file."""
     try:

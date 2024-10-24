@@ -21,33 +21,55 @@ class ContractAgent:
                 # Define tasks
                 generate_contract_task = self.cohere_tool.chat
                 compile_contract_task = self.compile_contract_node
-                analyze_contract_task = self.analyze_contract_node if self.analyze_contract_node else None
-                save_contract_task = self.storage_tool.save_contract  # Use save_contract method from storage
-                save_report_task = self.storage_tool.save_report      # Use save_report method from storage
+                analyze_contract_task = self.analyze_contract_node
+                save_contract_task = self.storage_tool.save_contract
+                save_slither_report_task = self.storage_tool.save_slither_report
 
                 # Build the graph
                 contract_graph = StateGraph(dict)
                 contract_graph.add_node("generate_contract", generate_contract_task)
                 contract_graph.add_node("compile_contract", compile_contract_task)
-                
-                if analyze_contract_task:
-                    contract_graph.add_node("analyze_contract", analyze_contract_task)
-                    contract_graph.add_edge("compile_contract", "analyze_contract")
-                    contract_graph.add_edge("analyze_contract", "save_contract")
-                else:
-                    contract_graph.add_edge("compile_contract", "save_contract")
+
+                # Ensure proper flow with Slither analysis and saving of contract/report
+                contract_graph.add_node("analyze_contract", analyze_contract_task)
+                contract_graph.add_edge("compile_contract", "analyze_contract")
+                contract_graph.add_edge("analyze_contract", "save_contract")
 
                 contract_graph.add_edge("generate_contract", "compile_contract")
                 contract_graph.add_node("save_contract", save_contract_task)
-                contract_graph.add_node("save_report", save_report_task)  # Add report saving node if necessary
+                contract_graph.add_node("save_slither_report", save_slither_report_task)
+                contract_graph.add_edge("save_contract", "save_slither_report")
 
-                # Execute the graph
-                result = contract_graph.execute("generate_contract")
-                
+                # Initialize the state that will be passed between nodes
+                state = {"messages": []}
+
+                # Execute the graph starting from the first node
+                logger.info("Executing contract generation workflow...")
+                result = contract_graph.execute("generate_contract", state)
+
+                # Debugging: Log the state after each major step
+                logger.debug(f"Graph execution result: {result}")
+                logger.debug(f"Current state: {state}")
+
                 if result:
-                    logger.success(f"Contract {i+1}/{num_contracts} execution workflow completed successfully")
+                    logger.success(f"Contract {i+1}/{num_contracts} execution workflow completed")
+
+                    # Check if save_contract and save_slither_report are called
+                    save_contract_result = contract_graph.get_node_result("save_contract", state)
+                    logger.debug(f"save_contract_result: {save_contract_result}")
+
+                    if save_contract_result:
+                        save_slither_report_result = contract_graph.get_node_result("save_slither_report", state)
+                        logger.debug(f"save_slither_report_result: {save_slither_report_result}")
+
+                        if save_slither_report_result:
+                            logger.success(f"Slither report saved for contract {i+1}")
+                        else:
+                            logger.error(f"Slither report not saved for contract {i+1}")
+                    else:
+                        logger.error(f"Contract {i+1} was not saved")
                 else:
-                    logger.error(f"Contract {i+1}/{num_contracts} execution workflow failed")
+                    logger.error(f"Contract {i+1} workflow failed")
 
             except Exception as e:
-                logger.exception(f"Unexpected error during workflow execution for contract {i+1}: {e}")
+                logger.exception(f"Error in workflow execution for contract {i+1}: {e}")

@@ -1,78 +1,61 @@
-from loguru import logger
 import subprocess
-import os
-import shutil
 import tempfile
+import os
+from loguru import logger
 
-def compile_solidity_node(contract_code: str):
-    """Compiles Solidity code using solc."""
-    return Node(task=lambda: _compile_solidity(contract_code))
-
-def _compile_solidity(contract_code: str):
-    """Helper function to compile Solidity contract using solc."""
+def _compile_solidity(contract_code):
+    """Compiles Solidity contract code using solc."""
     try:
-        # Validate if 'solc' is installed
-        if not shutil.which("solc"):
-            logger.error("'solc' is not installed or not found in PATH.")
-            return {"success": False, "error": "'solc' not installed"}
+        with tempfile.NamedTemporaryFile(suffix=".sol", delete=False) as temp_contract_file:
+            temp_contract_file.write(contract_code.encode('utf-8'))
+            temp_contract_file_path = temp_contract_file.name
 
-        # Write the contract to a temporary file
-        with tempfile.NamedTemporaryFile(suffix=".sol", delete=False) as tmp_file:
-            tmp_file.write(contract_code.encode())
-            contract_file = tmp_file.name
-
-        logger.debug(f"Compiling contract located at {contract_file}")
-
-        # Compile the contract with solc
+        # Run solc compiler on the temp contract file
         result = subprocess.run(
-            ["solc", "--bin", contract_file],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
+            ['solc', '--bin', temp_contract_file_path],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
         )
-        
-        # Clean up the temporary file
-        os.remove(contract_file)
 
-        if result.returncode != 0:
-            logger.error(f"Compilation failed: {result.stderr}")
-            return {"success": False, "error": result.stderr}
-
-        logger.success(f"Contract compiled successfully.")
-        return {"success": True, "output": result.stdout}
+        if result.returncode == 0:
+            logger.info(f"Solidity compilation successful for {temp_contract_file_path}.")
+            return result.stdout  # Return compilation output
+        else:
+            logger.error(f"Solidity compilation failed for {temp_contract_file_path}: {result.stderr}")
+            return None  # Compilation failed
 
     except Exception as e:
-        logger.exception(f"Error during contract compilation: {e}")
-        return {"success": False, "error": str(e)}
+        logger.exception(f"Error during Solidity compilation: {e}")
+        raise e
+    finally:
+        try:
+            if os.path.exists(temp_contract_file_path):
+                os.remove(temp_contract_file_path)  # Clean up temp file
+        except Exception as cleanup_error:
+            logger.warning(f"Error cleaning up temp file {temp_contract_file_path}: {cleanup_error}")
 
-def analyze_with_slither_node(contract_file: str):
-    """Generates a LangGraph node to analyze Solidity code with Slither."""
-    return Node(task=lambda: _run_slither_analysis(contract_file))
-
-def _run_slither_analysis(contract_file: str):
-    """Helper function to run Slither analysis on the contract."""
+def _analyze_with_slither(contract_file_path):
+    """Runs Slither analysis on a compiled contract using Slither."""
     try:
-        # Validate if 'slither' is installed
-        if not shutil.which("slither"):
-            logger.error("'slither' is not installed or not found in PATH.")
-            return {"success": False, "error": "'slither' not installed"}
-
-        logger.info(f"Running Slither analysis on contract: {contract_file}")
-
         result = subprocess.run(
-            ["slither", contract_file],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
+            ['slither', contract_file_path],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
         )
 
-        if result.returncode != 0:
-            logger.error(f"Slither analysis failed: {result.stderr}")
-            return {"success": False, "error": result.stderr}
+        if result.returncode == 0:
+            logger.info(f"Slither analysis successful for {contract_file_path}.")
+            return result.stdout  # Return analysis output
+        else:
+            logger.error(f"Slither analysis failed for {contract_file_path}: {result.stderr}")
+            return None  # Slither analysis failed
 
-        logger.success("Slither analysis completed successfully.")
-        return {"success": True, "output": result.stdout}
-        
     except Exception as e:
         logger.exception(f"Error during Slither analysis: {e}")
-        return {"success": False, "error": str(e)}
+        raise e
+
+def compile_solidity_node(contract_code):
+    """Node wrapper for compiling Solidity contract using solc."""
+    return lambda: _compile_solidity(contract_code)
+
+def analyze_with_slither_node(compiled_contract_file):
+    """Node wrapper for analyzing compiled contract with Slither."""
+    return lambda: _analyze_with_slither(compiled_contract_file)

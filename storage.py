@@ -1,12 +1,10 @@
-from loguru import logger
 import os
+from loguru import logger
 from datetime import datetime
 
 class ContractStorage:
     def __init__(self):
-        self._create_directories()
-
-    def _create_directories(self):
+        # Fixed directories
         try:
             os.makedirs('contracts', exist_ok=True)
             logger.success("Contracts directory created or already exists.")
@@ -22,7 +20,7 @@ class ContractStorage:
             raise e
 
     def save_contract(self, contract_code: str):
-        """Saves the generated Solidity contract to the output directory."""
+        """Saves the generated Solidity contract to the contracts directory."""
         if not contract_code:
             raise ValueError("Contract code is empty. Cannot save an empty contract.")
             
@@ -39,7 +37,7 @@ class ContractStorage:
             raise e
 
     def save_slither_report(self, contract_filepath: str, slither_report: str):
-        """Saves the Slither analysis report."""
+        """Saves the Slither analysis report to the reports directory."""
         if not slither_report:
             raise ValueError("Slither report is empty. Cannot save an empty report.")
             
